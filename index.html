@@ -853,14 +853,22 @@
         return out;
       }
 
-      function downloadJson(filename, value) {
-        const blob = new Blob([JSON.stringify(value, null, 2)], { type: "application/json" });
+      function downloadBlob(filename, blob) {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
         a.download = filename;
+        a.rel = "noopener";
+        a.target = "_blank";
+        document.body.appendChild(a);
         a.click();
-        URL.revokeObjectURL(url);
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+      }
+
+      function downloadJson(filename, value) {
+        const blob = new Blob([JSON.stringify(value, null, 2)], { type: "application/json" });
+        downloadBlob(filename, blob);
       }
 
       async function backupNow() {
@@ -872,20 +880,36 @@
 
         const filename = `passordhvelv-${new Date().toISOString().slice(0, 10)}.json`;
         const jsonText = JSON.stringify(raw, null, 2);
+        const blob = new Blob([jsonText], { type: "application/json" });
 
-        try {
-          const file = new File([jsonText], filename, { type: "application/json" });
-          if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-            await navigator.share({ title: "Passordhvelv", files: [file] });
-          } else {
-            downloadJson(filename, raw);
+        let completed = false;
+
+        if (navigator.share) {
+          try {
+            const file = typeof File !== "undefined" ? new File([blob], filename, { type: "application/json" }) : null;
+            if (file && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
+              await navigator.share({ title: "Passordhvelv", files: [file] });
+              completed = true;
+            }
+          } catch (err) {
+            if (err?.name === "AbortError") return;
           }
+        }
+
+        if (!completed) {
+          try {
+            downloadBlob(filename, blob);
+            completed = true;
+          } catch {}
+        }
+
+        if (completed) {
           setLastBackupTs(Date.now());
           updateBackupUI();
           setStatus("Sikkerhetskopi laget.", "ok");
           setTimeout(() => setStatus(""), 1800);
-        } catch {
-          setStatus("Klarte ikke å lage sikkerhetskopi.", "error");
+        } else {
+          setStatus("Klarte ikke å lage sikkerhetskopi. Prøv igjen eller bruk Gjenopprett senere.", "error");
         }
       }
 
