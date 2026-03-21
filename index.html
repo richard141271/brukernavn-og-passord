@@ -1,0 +1,971 @@
+<!doctype html>
+<html lang="no">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Passordhvelv</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #0b0f17;
+        --panel: #111827;
+        --text: #e5e7eb;
+        --muted: #9ca3af;
+        --border: rgba(255, 255, 255, 0.12);
+        --primary: #60a5fa;
+        --danger: #f87171;
+        --ok: #34d399;
+      }
+
+      @media (prefers-color-scheme: light) {
+        :root {
+          --bg: #f6f7fb;
+          --panel: #ffffff;
+          --text: #111827;
+          --muted: #4b5563;
+          --border: rgba(17, 24, 39, 0.12);
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family:
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          Helvetica,
+          Arial,
+          "Apple Color Emoji",
+          "Segoe UI Emoji";
+        background: var(--bg);
+        color: var(--text);
+      }
+
+      .container {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 24px 16px 48px;
+      }
+
+      header {
+        display: flex;
+        gap: 12px;
+        align-items: baseline;
+        justify-content: space-between;
+        margin-bottom: 16px;
+      }
+
+      h1 {
+        font-size: 20px;
+        margin: 0;
+        letter-spacing: 0.2px;
+      }
+
+      .subtitle {
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 16px;
+      }
+
+      .row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+
+      @media (max-width: 780px) {
+        .row {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      label {
+        display: block;
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+
+      input,
+      textarea {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--text);
+        outline: none;
+      }
+
+      textarea {
+        min-height: 90px;
+        resize: vertical;
+      }
+
+      input:focus,
+      textarea:focus {
+        border-color: rgba(96, 165, 250, 0.65);
+        box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.15);
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 12px;
+      }
+
+      .actions .left,
+      .actions .right {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      button {
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--text);
+        cursor: pointer;
+      }
+
+      button.primary {
+        background: rgba(96, 165, 250, 0.22);
+        border-color: rgba(96, 165, 250, 0.55);
+      }
+
+      button.danger {
+        background: rgba(248, 113, 113, 0.15);
+        border-color: rgba(248, 113, 113, 0.55);
+      }
+
+      button.ok {
+        background: rgba(52, 211, 153, 0.15);
+        border-color: rgba(52, 211, 153, 0.55);
+      }
+
+      button:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 12px;
+        user-select: none;
+      }
+
+      .grid {
+        display: grid;
+        gap: 12px;
+        margin-top: 14px;
+      }
+
+      .toolbar {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .toolbar .right {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        overflow: hidden;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+      }
+
+      th,
+      td {
+        text-align: left;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border);
+        font-size: 13px;
+        vertical-align: top;
+      }
+
+      th {
+        font-size: 12px;
+        color: var(--muted);
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      tr:last-child td {
+        border-bottom: none;
+      }
+
+      .mono {
+        font-family:
+          ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          Monaco,
+          Consolas,
+          "Liberation Mono",
+          "Courier New",
+          monospace;
+      }
+
+      .small {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .tag {
+        display: inline-block;
+        font-size: 12px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        color: var(--muted);
+      }
+
+      dialog {
+        width: min(640px, calc(100vw - 24px));
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        padding: 0;
+        background: var(--panel);
+        color: var(--text);
+      }
+
+      dialog::backdrop {
+        background: rgba(0, 0, 0, 0.6);
+      }
+
+      .dialog-body {
+        padding: 16px;
+      }
+
+      .dialog-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .dialog-header h2 {
+        margin: 0;
+        font-size: 14px;
+        letter-spacing: 0.2px;
+      }
+
+      .dialog-actions {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        padding: 14px 16px 16px;
+        border-top: 1px solid var(--border);
+      }
+
+      .status {
+        margin-top: 10px;
+        font-size: 12px;
+        color: var(--muted);
+        min-height: 18px;
+      }
+
+      .status.error {
+        color: var(--danger);
+      }
+
+      .status.ok {
+        color: var(--ok);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <div>
+          <h1>Passordhvelv</h1>
+          <div class="subtitle">Lokal lagring med kryptering i nettleseren</div>
+        </div>
+        <div class="pill" id="vaultState">Låst</div>
+      </header>
+
+      <div class="grid">
+        <div class="panel">
+          <div class="toolbar">
+            <div>
+              <div class="small">Søk</div>
+              <input id="search" placeholder="Søk etter tjeneste eller brukernavn" autocomplete="off" />
+            </div>
+            <div class="right">
+              <button id="lockBtn" class="danger" disabled>Lås</button>
+              <button id="exportBtn" disabled>Eksporter</button>
+              <button id="importBtn">Importer</button>
+              <button id="addBtn" class="primary" disabled>Legg til</button>
+            </div>
+          </div>
+          <div class="status" id="status"></div>
+        </div>
+
+        <div class="panel" id="tablePanel" style="display: none">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 20%">Tjeneste</th>
+                <th style="width: 20%">Brukernavn</th>
+                <th style="width: 22%">Passord</th>
+                <th style="width: 28%">Notat</th>
+                <th style="width: 10%"></th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+          <div class="small" id="emptyState" style="margin-top: 10px; display: none">
+            Ingen oppføringer ennå.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <dialog id="unlockDialog">
+      <form method="dialog" id="unlockForm">
+        <div class="dialog-header">
+          <h2 id="unlockTitle">Lås opp</h2>
+          <span class="tag" id="unlockModeTag">Eksisterende hvelv</span>
+        </div>
+        <div class="dialog-body">
+          <div class="row">
+            <div>
+              <label for="masterPassword">Hovedpassord</label>
+              <input id="masterPassword" type="password" autocomplete="current-password" required />
+            </div>
+            <div id="confirmWrap" style="display: none">
+              <label for="masterPasswordConfirm">Bekreft</label>
+              <input id="masterPasswordConfirm" type="password" autocomplete="new-password" />
+            </div>
+          </div>
+          <div class="small" style="margin-top: 10px">
+            Hovedpassordet lagres ikke. Hvis du glemmer det, kan ikke data dekrypteres.
+          </div>
+          <div class="status" id="unlockStatus"></div>
+        </div>
+        <div class="dialog-actions">
+          <button id="unlockCancelBtn">Avbryt</button>
+          <button id="unlockSubmitBtn" class="primary" value="ok">OK</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="entryDialog">
+      <form method="dialog" id="entryForm">
+        <div class="dialog-header">
+          <h2 id="entryTitle">Ny oppføring</h2>
+          <button id="entryCloseBtn" value="cancel">Lukk</button>
+        </div>
+        <div class="dialog-body">
+          <div class="row">
+            <div>
+              <label for="service">Tjeneste</label>
+              <input id="service" autocomplete="off" required />
+            </div>
+            <div>
+              <label for="username">Brukernavn</label>
+              <input id="username" autocomplete="username" />
+            </div>
+          </div>
+          <div class="row" style="margin-top: 12px">
+            <div>
+              <label for="password">Passord</label>
+              <input id="password" type="password" autocomplete="new-password" required />
+            </div>
+            <div>
+              <label>&nbsp;</label>
+              <div style="display: flex; gap: 10px; flex-wrap: wrap">
+                <button id="genBtn" type="button">Generer</button>
+                <button id="togglePwBtn" type="button">Vis/skjul</button>
+                <button id="copyPwBtn" type="button">Kopier</button>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top: 12px">
+            <label for="note">Notat</label>
+            <textarea id="note" autocomplete="off"></textarea>
+          </div>
+          <div class="status" id="entryStatus"></div>
+        </div>
+        <div class="dialog-actions">
+          <button id="deleteBtn" class="danger" type="button" style="display: none">Slett</button>
+          <button id="saveBtn" class="ok" value="ok">Lagre</button>
+        </div>
+      </form>
+    </dialog>
+
+    <input id="importFile" type="file" accept="application/json" style="display: none" />
+
+    <script>
+      const VAULT_KEY = "simple_password_vault_v1";
+      const encoder = new TextEncoder();
+      const decoder = new TextDecoder();
+
+      const vaultStateEl = document.getElementById("vaultState");
+      const statusEl = document.getElementById("status");
+      const rowsEl = document.getElementById("rows");
+      const searchEl = document.getElementById("search");
+      const tablePanelEl = document.getElementById("tablePanel");
+      const emptyStateEl = document.getElementById("emptyState");
+
+      const lockBtn = document.getElementById("lockBtn");
+      const addBtn = document.getElementById("addBtn");
+      const exportBtn = document.getElementById("exportBtn");
+      const importBtn = document.getElementById("importBtn");
+      const importFileEl = document.getElementById("importFile");
+
+      const unlockDialog = document.getElementById("unlockDialog");
+      const unlockForm = document.getElementById("unlockForm");
+      const unlockTitleEl = document.getElementById("unlockTitle");
+      const unlockModeTagEl = document.getElementById("unlockModeTag");
+      const masterPasswordEl = document.getElementById("masterPassword");
+      const masterPasswordConfirmEl = document.getElementById("masterPasswordConfirm");
+      const confirmWrapEl = document.getElementById("confirmWrap");
+      const unlockStatusEl = document.getElementById("unlockStatus");
+      const unlockCancelBtn = document.getElementById("unlockCancelBtn");
+      const unlockSubmitBtn = document.getElementById("unlockSubmitBtn");
+
+      const entryDialog = document.getElementById("entryDialog");
+      const entryForm = document.getElementById("entryForm");
+      const entryTitleEl = document.getElementById("entryTitle");
+      const serviceEl = document.getElementById("service");
+      const usernameEl = document.getElementById("username");
+      const passwordEl = document.getElementById("password");
+      const noteEl = document.getElementById("note");
+      const genBtn = document.getElementById("genBtn");
+      const togglePwBtn = document.getElementById("togglePwBtn");
+      const copyPwBtn = document.getElementById("copyPwBtn");
+      const deleteBtn = document.getElementById("deleteBtn");
+      const entryStatusEl = document.getElementById("entryStatus");
+
+      let sessionKey = null;
+      let vaultSalt = null;
+      let items = [];
+      let editingId = null;
+
+      function setStatus(message, kind = "") {
+        statusEl.textContent = message || "";
+        statusEl.className = kind ? `status ${kind}` : "status";
+      }
+
+      function setUnlockStatus(message, kind = "") {
+        unlockStatusEl.textContent = message || "";
+        unlockStatusEl.className = kind ? `status ${kind}` : "status";
+      }
+
+      function setEntryStatus(message, kind = "") {
+        entryStatusEl.textContent = message || "";
+        entryStatusEl.className = kind ? `status ${kind}` : "status";
+      }
+
+      function toBase64(bytes) {
+        let binary = "";
+        const chunkSize = 0x8000;
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+          binary += String.fromCharCode(...bytes.slice(i, i + chunkSize));
+        }
+        return btoa(binary);
+      }
+
+      function fromBase64(base64) {
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        return bytes;
+      }
+
+      function normalize(text) {
+        return (text || "").trim();
+      }
+
+      function randomId() {
+        const bytes = new Uint8Array(16);
+        crypto.getRandomValues(bytes);
+        return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+      }
+
+      async function deriveKey(masterPassword, saltBytes) {
+        const baseKey = await crypto.subtle.importKey("raw", encoder.encode(masterPassword), "PBKDF2", false, [
+          "deriveKey",
+        ]);
+
+        return crypto.subtle.deriveKey(
+          {
+            name: "PBKDF2",
+            salt: saltBytes,
+            iterations: 200_000,
+            hash: "SHA-256",
+          },
+          baseKey,
+          { name: "AES-GCM", length: 256 },
+          false,
+          ["encrypt", "decrypt"],
+        );
+      }
+
+      async function encryptJson(key, value) {
+        const iv = new Uint8Array(12);
+        crypto.getRandomValues(iv);
+        const encoded = encoder.encode(JSON.stringify(value));
+        const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoded));
+        return { iv: toBase64(iv), data: toBase64(ciphertext) };
+      }
+
+      async function decryptJson(key, payload) {
+        const iv = fromBase64(payload.iv);
+        const data = fromBase64(payload.data);
+        const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, data);
+        return JSON.parse(decoder.decode(new Uint8Array(plaintext)));
+      }
+
+      function loadRawVault() {
+        const raw = localStorage.getItem(VAULT_KEY);
+        if (!raw) return null;
+        try {
+          return JSON.parse(raw);
+        } catch {
+          return null;
+        }
+      }
+
+      function saveRawVault(payload) {
+        localStorage.setItem(VAULT_KEY, JSON.stringify(payload));
+      }
+
+      function setLockedUI(locked) {
+        vaultStateEl.textContent = locked ? "Låst" : "Ulåst";
+        lockBtn.disabled = locked;
+        addBtn.disabled = locked;
+        exportBtn.disabled = locked;
+        searchEl.disabled = locked;
+        tablePanelEl.style.display = locked ? "none" : "block";
+      }
+
+      function currentFilteredItems() {
+        const q = normalize(searchEl.value).toLowerCase();
+        if (!q) return items;
+        return items.filter((it) => {
+          const a = (it.service || "").toLowerCase();
+          const b = (it.username || "").toLowerCase();
+          return a.includes(q) || b.includes(q);
+        });
+      }
+
+      function render() {
+        rowsEl.innerHTML = "";
+        const list = currentFilteredItems().slice().sort((a, b) => (a.service || "").localeCompare(b.service || ""));
+
+        emptyStateEl.style.display = items.length === 0 ? "block" : "none";
+
+        for (const it of list) {
+          const tr = document.createElement("tr");
+
+          const serviceTd = document.createElement("td");
+          serviceTd.textContent = it.service || "";
+          tr.appendChild(serviceTd);
+
+          const userTd = document.createElement("td");
+          userTd.textContent = it.username || "";
+          tr.appendChild(userTd);
+
+          const pwTd = document.createElement("td");
+          pwTd.className = "mono";
+          const pwSpan = document.createElement("span");
+          pwSpan.textContent = "••••••••";
+          pwSpan.dataset.revealed = "0";
+
+          const pwBtnWrap = document.createElement("div");
+          pwBtnWrap.style.display = "flex";
+          pwBtnWrap.style.gap = "8px";
+          pwBtnWrap.style.flexWrap = "wrap";
+          pwBtnWrap.style.alignItems = "center";
+
+          const revealBtn = document.createElement("button");
+          revealBtn.type = "button";
+          revealBtn.textContent = "Vis";
+          revealBtn.addEventListener("click", async () => {
+            if (pwSpan.dataset.revealed === "1") {
+              pwSpan.textContent = "••••••••";
+              pwSpan.dataset.revealed = "0";
+              revealBtn.textContent = "Vis";
+              return;
+            }
+            pwSpan.textContent = it.password;
+            pwSpan.dataset.revealed = "1";
+            revealBtn.textContent = "Skjul";
+          });
+
+          const copyBtn = document.createElement("button");
+          copyBtn.type = "button";
+          copyBtn.textContent = "Kopier";
+          copyBtn.addEventListener("click", async () => {
+            try {
+              await navigator.clipboard.writeText(it.password || "");
+              setStatus("Kopierte passord til utklippstavlen.", "ok");
+              setTimeout(() => setStatus(""), 1800);
+            } catch {
+              setStatus("Klarte ikke å kopiere passord.", "error");
+            }
+          });
+
+          pwBtnWrap.appendChild(pwSpan);
+          pwBtnWrap.appendChild(revealBtn);
+          pwBtnWrap.appendChild(copyBtn);
+          pwTd.appendChild(pwBtnWrap);
+          tr.appendChild(pwTd);
+
+          const noteTd = document.createElement("td");
+          noteTd.textContent = it.note || "";
+          tr.appendChild(noteTd);
+
+          const actionTd = document.createElement("td");
+          const editBtn = document.createElement("button");
+          editBtn.type = "button";
+          editBtn.textContent = "Endre";
+          editBtn.addEventListener("click", () => openEdit(it.id));
+          actionTd.appendChild(editBtn);
+          tr.appendChild(actionTd);
+
+          rowsEl.appendChild(tr);
+        }
+      }
+
+      async function persist() {
+        if (!sessionKey || !vaultSalt) throw new Error("Vault not unlocked");
+        const encrypted = await encryptJson(sessionKey, { items });
+        saveRawVault({ v: 1, salt: toBase64(vaultSalt), enc: encrypted });
+      }
+
+      function clearSensitiveInputs() {
+        masterPasswordEl.value = "";
+        masterPasswordConfirmEl.value = "";
+      }
+
+      function lock() {
+        sessionKey = null;
+        vaultSalt = null;
+        items = [];
+        editingId = null;
+        setLockedUI(true);
+        setStatus("Hvelvet er låst.", "ok");
+        setTimeout(() => setStatus(""), 1800);
+      }
+
+      function openUnlock({ createNew }) {
+        unlockTitleEl.textContent = createNew ? "Opprett hvelv" : "Lås opp";
+        unlockModeTagEl.textContent = createNew ? "Nytt hvelv" : "Eksisterende hvelv";
+        confirmWrapEl.style.display = createNew ? "block" : "none";
+        masterPasswordConfirmEl.required = createNew;
+        setUnlockStatus("");
+        clearSensitiveInputs();
+        unlockDialog.showModal();
+        setTimeout(() => masterPasswordEl.focus(), 0);
+      }
+
+      async function unlockWithPassword(masterPassword, rawVault) {
+        if (!rawVault?.salt || !rawVault?.enc?.iv || !rawVault?.enc?.data) {
+          throw new Error("Ugyldig hvelvformat");
+        }
+        const saltBytes = fromBase64(rawVault.salt);
+        const key = await deriveKey(masterPassword, saltBytes);
+        const data = await decryptJson(key, rawVault.enc);
+        const nextItems = Array.isArray(data?.items) ? data.items : [];
+        return { key, saltBytes, nextItems };
+      }
+
+      async function createNewVault(masterPassword) {
+        const saltBytes = new Uint8Array(16);
+        crypto.getRandomValues(saltBytes);
+        const key = await deriveKey(masterPassword, saltBytes);
+        const enc = await encryptJson(key, { items: [] });
+        saveRawVault({ v: 1, salt: toBase64(saltBytes), enc });
+        return { key, saltBytes, nextItems: [] };
+      }
+
+      function sanitizeItem(raw) {
+        const service = normalize(raw.service);
+        const username = normalize(raw.username);
+        const password = raw.password ?? "";
+        const note = normalize(raw.note);
+        return { service, username, password, note };
+      }
+
+      function openCreate() {
+        editingId = null;
+        entryTitleEl.textContent = "Ny oppføring";
+        deleteBtn.style.display = "none";
+        serviceEl.value = "";
+        usernameEl.value = "";
+        passwordEl.value = "";
+        noteEl.value = "";
+        passwordEl.type = "password";
+        setEntryStatus("");
+        entryDialog.showModal();
+        setTimeout(() => serviceEl.focus(), 0);
+      }
+
+      function openEdit(id) {
+        const it = items.find((x) => x.id === id);
+        if (!it) return;
+        editingId = id;
+        entryTitleEl.textContent = "Endre oppføring";
+        deleteBtn.style.display = "inline-block";
+        serviceEl.value = it.service || "";
+        usernameEl.value = it.username || "";
+        passwordEl.value = it.password || "";
+        noteEl.value = it.note || "";
+        passwordEl.type = "password";
+        setEntryStatus("");
+        entryDialog.showModal();
+        setTimeout(() => serviceEl.focus(), 0);
+      }
+
+      function generatePassword(length = 18) {
+        const alphabet =
+          "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*()-_=+[]{}:,.?";
+        const bytes = new Uint8Array(length);
+        crypto.getRandomValues(bytes);
+        let out = "";
+        for (let i = 0; i < length; i++) out += alphabet[bytes[i] % alphabet.length];
+        return out;
+      }
+
+      function downloadJson(filename, value) {
+        const blob = new Blob([JSON.stringify(value, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
+      function getHasVault() {
+        return !!loadRawVault();
+      }
+
+      async function init() {
+        setLockedUI(true);
+        if (getHasVault()) {
+          openUnlock({ createNew: false });
+        } else {
+          openUnlock({ createNew: true });
+        }
+      }
+
+      unlockCancelBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        unlockDialog.close();
+        lock();
+      });
+
+      unlockForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        unlockSubmitBtn.disabled = true;
+        setUnlockStatus("");
+
+        const rawVault = loadRawVault();
+        const createNew = !rawVault;
+        const masterPassword = masterPasswordEl.value;
+
+        if (normalize(masterPassword).length < 6) {
+          unlockSubmitBtn.disabled = false;
+          setUnlockStatus("Hovedpassord må være minst 6 tegn.", "error");
+          return;
+        }
+
+        if (createNew) {
+          if (masterPassword !== masterPasswordConfirmEl.value) {
+            unlockSubmitBtn.disabled = false;
+            setUnlockStatus("Hovedpassordene matcher ikke.", "error");
+            return;
+          }
+        }
+
+        try {
+          const unlocked = createNew
+            ? await createNewVault(masterPassword)
+            : await unlockWithPassword(masterPassword, rawVault);
+
+          sessionKey = unlocked.key;
+          vaultSalt = unlocked.saltBytes;
+          items = unlocked.nextItems.map((x) => ({
+            id: x.id || randomId(),
+            service: x.service || "",
+            username: x.username || "",
+            password: x.password || "",
+            note: x.note || "",
+            createdAt: x.createdAt || Date.now(),
+            updatedAt: x.updatedAt || Date.now(),
+          }));
+
+          await persist();
+          unlockDialog.close();
+          clearSensitiveInputs();
+          setLockedUI(false);
+          setStatus(createNew ? "Opprettet nytt hvelv." : "Hvelv låst opp.", "ok");
+          setTimeout(() => setStatus(""), 1800);
+          render();
+          searchEl.focus();
+        } catch {
+          setUnlockStatus("Feil hovedpassord eller ødelagte data.", "error");
+        } finally {
+          unlockSubmitBtn.disabled = false;
+        }
+      });
+
+      lockBtn.addEventListener("click", () => lock());
+      addBtn.addEventListener("click", () => openCreate());
+
+      searchEl.addEventListener("input", () => render());
+
+      genBtn.addEventListener("click", () => {
+        passwordEl.value = generatePassword();
+        passwordEl.type = "text";
+        setEntryStatus("Genererte nytt passord.", "ok");
+        setTimeout(() => setEntryStatus(""), 1600);
+      });
+
+      togglePwBtn.addEventListener("click", () => {
+        passwordEl.type = passwordEl.type === "password" ? "text" : "password";
+      });
+
+      copyPwBtn.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(passwordEl.value || "");
+          setEntryStatus("Kopierte passord.", "ok");
+          setTimeout(() => setEntryStatus(""), 1600);
+        } catch {
+          setEntryStatus("Klarte ikke å kopiere.", "error");
+        }
+      });
+
+      deleteBtn.addEventListener("click", async () => {
+        if (!editingId) return;
+        const next = items.filter((x) => x.id !== editingId);
+        items = next;
+        editingId = null;
+        try {
+          await persist();
+          entryDialog.close();
+          setStatus("Slettet oppføring.", "ok");
+          setTimeout(() => setStatus(""), 1800);
+          render();
+        } catch {
+          setEntryStatus("Klarte ikke å lagre endringen.", "error");
+        }
+      });
+
+      entryForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        setEntryStatus("");
+        const next = sanitizeItem({
+          service: serviceEl.value,
+          username: usernameEl.value,
+          password: passwordEl.value,
+          note: noteEl.value,
+        });
+
+        if (!next.service) {
+          setEntryStatus("Tjeneste må fylles ut.", "error");
+          return;
+        }
+        if (!next.password) {
+          setEntryStatus("Passord må fylles ut.", "error");
+          return;
+        }
+
+        const now = Date.now();
+        if (editingId) {
+          items = items.map((x) =>
+            x.id === editingId ? { ...x, ...next, updatedAt: now } : x,
+          );
+        } else {
+          items = [
+            ...items,
+            { id: randomId(), ...next, createdAt: now, updatedAt: now },
+          ];
+        }
+
+        try {
+          await persist();
+          entryDialog.close();
+          setStatus("Lagret.", "ok");
+          setTimeout(() => setStatus(""), 1600);
+          render();
+        } catch {
+          setEntryStatus("Klarte ikke å lagre.", "error");
+        }
+      });
+
+      exportBtn.addEventListener("click", () => {
+        const raw = loadRawVault();
+        if (!raw) return;
+        downloadJson("passordhvelv.json", raw);
+        setStatus("Eksporterte kryptert hvelv.", "ok");
+        setTimeout(() => setStatus(""), 1600);
+      });
+
+      importBtn.addEventListener("click", () => {
+        importFileEl.value = "";
+        importFileEl.click();
+      });
+
+      importFileEl.addEventListener("change", async () => {
+        const file = importFileEl.files?.[0];
+        if (!file) return;
+        try {
+          const text = await file.text();
+          const json = JSON.parse(text);
+          if (!json?.salt || !json?.enc?.iv || !json?.enc?.data) {
+            setStatus("Filen ser ikke ut som et hvelv.", "error");
+            return;
+          }
+          saveRawVault(json);
+          lock();
+          openUnlock({ createNew: false });
+          setStatus("Importerte hvelv. Lås opp for å se innholdet.", "ok");
+          setTimeout(() => setStatus(""), 2000);
+        } catch {
+          setStatus("Klarte ikke å importere.", "error");
+        }
+      });
+
+      init();
+    </script>
+  </body>
+</html>
