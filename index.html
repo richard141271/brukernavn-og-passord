@@ -332,13 +332,48 @@
             <div class="right">
               <button id="unlockBtn" class="primary">Lås opp</button>
               <button id="lockBtn" class="danger" disabled>Lås</button>
-              <button id="exportBtn" disabled>Eksporter</button>
-              <button id="importBtn">Importer</button>
+              <button id="exportBtn" disabled>Sikkerhetskopi</button>
+              <button id="importBtn">Gjenopprett</button>
               <button id="addBtn" class="primary" disabled>Legg til</button>
             </div>
           </div>
           <div class="status" id="status"></div>
         </div>
+
+          <div class="panel" id="lockedPanel" style="display: none">
+            <div style="display: flex; gap: 14px; align-items: center; flex-wrap: wrap">
+              <img
+                src="./icon.png"
+                alt=""
+                width="72"
+                height="72"
+                style="border-radius: 16px; border: 1px solid var(--border)"
+              />
+              <div>
+                <div style="font-size: 16px; font-weight: 650; letter-spacing: 0.2px">Hvelvet er låst</div>
+                <div class="small" id="lockedHint"></div>
+                <div class="small" style="margin-top: 6px">
+                  Hovedpassordet lagres ikke. Skriv det inn for å åpne hvelvet.
+                </div>
+              </div>
+            </div>
+            <div class="actions" style="margin-top: 14px">
+              <div class="left">
+                <button id="lockedUnlockBtn" class="primary" type="button" style="min-width: 140px">Lås opp</button>
+                <button id="lockedCreateBtn" class="ok" type="button" style="min-width: 140px">Opprett nytt</button>
+              </div>
+              <div class="right">
+                <button id="lockedBackupBtn" class="ok" type="button" style="min-width: 140px">Sikkerhetskopi</button>
+                <button id="lockedImportBtn" type="button" style="min-width: 140px">Gjenopprett</button>
+              </div>
+            </div>
+            <div class="small" style="margin-top: 10px">
+              Sist sikkerhetskopi: <span id="lastBackup">Aldri</span>
+            </div>
+            <div class="small" style="margin-top: 6px">
+              For å flytte til en ny enhet: Sikkerhetskopi på gammel → Gjenopprett på ny.
+            </div>
+          </div>
 
         <div class="panel" id="tablePanel" style="display: none">
           <table>
@@ -437,6 +472,7 @@
 
     <script>
       const VAULT_KEY = "simple_password_vault_v1";
+      const LAST_BACKUP_TS_KEY = "simple_password_vault_last_backup_ts_v1";
       const encoder = new TextEncoder();
       const decoder = new TextDecoder();
 
@@ -446,6 +482,9 @@
       const searchEl = document.getElementById("search");
       const tablePanelEl = document.getElementById("tablePanel");
       const emptyStateEl = document.getElementById("emptyState");
+      const lockedPanelEl = document.getElementById("lockedPanel");
+      const lockedHintEl = document.getElementById("lockedHint");
+      const lastBackupEl = document.getElementById("lastBackup");
 
       const lockBtn = document.getElementById("lockBtn");
       const unlockBtn = document.getElementById("unlockBtn");
@@ -453,6 +492,10 @@
       const exportBtn = document.getElementById("exportBtn");
       const importBtn = document.getElementById("importBtn");
       const importFileEl = document.getElementById("importFile");
+      const lockedUnlockBtn = document.getElementById("lockedUnlockBtn");
+      const lockedCreateBtn = document.getElementById("lockedCreateBtn");
+      const lockedBackupBtn = document.getElementById("lockedBackupBtn");
+      const lockedImportBtn = document.getElementById("lockedImportBtn");
 
       const unlockDialog = document.getElementById("unlockDialog");
       const unlockForm = document.getElementById("unlockForm");
@@ -572,15 +615,53 @@
         localStorage.setItem(VAULT_KEY, JSON.stringify(payload));
       }
 
+      function getLastBackupTs() {
+        const raw = localStorage.getItem(LAST_BACKUP_TS_KEY);
+        if (!raw) return null;
+        const ts = Number(raw);
+        return Number.isFinite(ts) && ts > 0 ? ts : null;
+      }
+
+      function setLastBackupTs(ts) {
+        localStorage.setItem(LAST_BACKUP_TS_KEY, String(ts));
+      }
+
+      function formatDateTime(ts) {
+        try {
+          return new Intl.DateTimeFormat("no-NO", { dateStyle: "medium", timeStyle: "short" }).format(new Date(ts));
+        } catch {
+          return new Date(ts).toLocaleString();
+        }
+      }
+
+      function updateBackupUI() {
+        const ts = getLastBackupTs();
+        lastBackupEl.textContent = ts ? formatDateTime(ts) : "Aldri";
+
+        const hasVault = getHasVault();
+        exportBtn.disabled = !hasVault;
+        lockedBackupBtn.disabled = !hasVault;
+      }
+
       function setLockedUI(locked) {
+        updateBackupUI();
         vaultStateEl.textContent = locked ? "Låst" : "Ulåst";
         lockBtn.disabled = locked;
         addBtn.disabled = locked;
-        exportBtn.disabled = locked;
         searchEl.disabled = locked;
         tablePanelEl.style.display = locked ? "none" : "block";
         unlockBtn.style.display = locked ? "inline-block" : "none";
         lockBtn.style.display = locked ? "none" : "inline-block";
+        lockedPanelEl.style.display = locked ? "block" : "none";
+
+        if (locked) {
+          const hasVault = getHasVault();
+          lockedHintEl.textContent = hasVault
+            ? "Skriv inn hovedpassordet ditt."
+            : "Første gang her? Lag et hovedpassord.";
+          lockedCreateBtn.style.display = hasVault ? "none" : "inline-block";
+          lockedUnlockBtn.textContent = hasVault ? "Lås opp" : "Opprett";
+        }
       }
 
       function currentFilteredItems() {
@@ -782,17 +863,44 @@
         URL.revokeObjectURL(url);
       }
 
+      async function backupNow() {
+        const raw = loadRawVault();
+        if (!raw) {
+          setStatus("Ingen hvelv å sikkerhetskopiere ennå.", "error");
+          return;
+        }
+
+        const filename = `passordhvelv-${new Date().toISOString().slice(0, 10)}.json`;
+        const jsonText = JSON.stringify(raw, null, 2);
+
+        try {
+          const file = new File([jsonText], filename, { type: "application/json" });
+          if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({ title: "Passordhvelv", files: [file] });
+          } else {
+            downloadJson(filename, raw);
+          }
+          setLastBackupTs(Date.now());
+          updateBackupUI();
+          setStatus("Sikkerhetskopi laget.", "ok");
+          setTimeout(() => setStatus(""), 1800);
+        } catch {
+          setStatus("Klarte ikke å lage sikkerhetskopi.", "error");
+        }
+      }
+
       function getHasVault() {
         return !!loadRawVault();
       }
 
+      function triggerImport() {
+        importFileEl.value = "";
+        importFileEl.click();
+      }
+
       async function init() {
         setLockedUI(true);
-        if (getHasVault()) {
-          openUnlock({ createNew: false });
-        } else {
-          openUnlock({ createNew: true });
-        }
+        setStatus("");
       }
 
       unlockCancelBtn.addEventListener("click", (e) => {
@@ -858,6 +966,10 @@
 
       lockBtn.addEventListener("click", () => lock());
       unlockBtn.addEventListener("click", () => openUnlock({ createNew: !getHasVault() }));
+      lockedUnlockBtn.addEventListener("click", () => openUnlock({ createNew: !getHasVault() }));
+      lockedCreateBtn.addEventListener("click", () => openUnlock({ createNew: true }));
+      lockedBackupBtn.addEventListener("click", () => backupNow());
+      lockedImportBtn.addEventListener("click", () => triggerImport());
       addBtn.addEventListener("click", () => openCreate());
 
       searchEl.addEventListener("input", () => render());
@@ -941,17 +1053,10 @@
         }
       });
 
-      exportBtn.addEventListener("click", () => {
-        const raw = loadRawVault();
-        if (!raw) return;
-        downloadJson("passordhvelv.json", raw);
-        setStatus("Eksporterte kryptert hvelv.", "ok");
-        setTimeout(() => setStatus(""), 1600);
-      });
+      exportBtn.addEventListener("click", () => backupNow());
 
       importBtn.addEventListener("click", () => {
-        importFileEl.value = "";
-        importFileEl.click();
+        triggerImport();
       });
 
       importFileEl.addEventListener("change", async () => {
