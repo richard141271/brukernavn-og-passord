@@ -326,6 +326,7 @@
               <input id="search" placeholder="Søk etter tjeneste eller brukernavn" autocomplete="off" />
             </div>
             <div class="right">
+              <button id="unlockBtn" class="primary">Lås opp</button>
               <button id="lockBtn" class="danger" disabled>Lås</button>
               <button id="exportBtn" disabled>Eksporter</button>
               <button id="importBtn">Importer</button>
@@ -443,6 +444,7 @@
       const emptyStateEl = document.getElementById("emptyState");
 
       const lockBtn = document.getElementById("lockBtn");
+      const unlockBtn = document.getElementById("unlockBtn");
       const addBtn = document.getElementById("addBtn");
       const exportBtn = document.getElementById("exportBtn");
       const importBtn = document.getElementById("importBtn");
@@ -573,6 +575,8 @@
         exportBtn.disabled = locked;
         searchEl.disabled = locked;
         tablePanelEl.style.display = locked ? "none" : "block";
+        unlockBtn.style.display = locked ? "inline-block" : "none";
+        lockBtn.style.display = locked ? "none" : "inline-block";
       }
 
       function currentFilteredItems() {
@@ -849,6 +853,7 @@
       });
 
       lockBtn.addEventListener("click", () => lock());
+      unlockBtn.addEventListener("click", () => openUnlock({ createNew: !getHasVault() }));
       addBtn.addEventListener("click", () => openCreate());
 
       searchEl.addEventListener("input", () => render());
