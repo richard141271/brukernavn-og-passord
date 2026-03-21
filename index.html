@@ -373,6 +373,21 @@
             <div class="small" style="margin-top: 6px">
               For å flytte til en ny enhet: Sikkerhetskopi på gammel → Gjenopprett på ny.
             </div>
+            <div style="margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px">
+              <div class="small" style="font-weight: 650; color: var(--text)">Skybackup (valgfritt)</div>
+              <div class="small" style="margin-top: 6px" id="cloudHint"></div>
+              <div class="actions" style="margin-top: 10px">
+                <div class="left">
+                  <button id="cloudSetupBtn" class="primary" type="button" style="min-width: 160px">Aktiver skybackup</button>
+                </div>
+                <div class="right">
+                  <button id="cloudRestoreBtn" type="button" style="min-width: 160px">Gjenopprett fra sky</button>
+                </div>
+              </div>
+              <div class="small" style="margin-top: 10px">
+                Sist skybackup: <span id="lastCloudBackup">Aldri</span>
+              </div>
+            </div>
           </div>
 
         <div class="panel" id="tablePanel" style="display: none">
@@ -468,11 +483,57 @@
       </form>
     </dialog>
 
+    <dialog id="cloudDialog">
+      <form method="dialog" id="cloudForm">
+        <div class="dialog-header">
+          <h2 id="cloudTitle">Skybackup</h2>
+          <button id="cloudCloseBtn" value="cancel">Lukk</button>
+        </div>
+        <div class="dialog-body">
+          <div id="cloudSetupView">
+            <div class="small" style="margin-bottom: 10px">
+              Skybackup gjør at du kan gjenopprette selv om nettleserdata blir slettet. Du får en gjenopprettingskode.
+            </div>
+            <div>
+              <label for="cloudCode">Gjenopprettingskode</label>
+              <input id="cloudCode" class="mono" autocomplete="off" readonly />
+            </div>
+            <div style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap">
+              <button id="cloudCopyCodeBtn" type="button">Kopier kode</button>
+              <button id="cloudRegenerateBtn" type="button">Ny kode</button>
+            </div>
+            <div class="small" style="margin-top: 10px">
+              Skriv koden ned og oppbevar den trygt. Uten den kan du ikke hente skybackuppen.
+            </div>
+          </div>
+
+          <div id="cloudRestoreView" style="display: none">
+            <div class="small" style="margin-bottom: 10px">
+              Skriv inn gjenopprettingskoden for å hente hvelvet fra skyen.
+            </div>
+            <div>
+              <label for="cloudRestoreCode">Gjenopprettingskode</label>
+              <input id="cloudRestoreCode" class="mono" autocomplete="off" />
+            </div>
+          </div>
+
+          <div class="status" id="cloudStatus"></div>
+        </div>
+        <div class="dialog-actions">
+          <button id="cloudActionBtn" class="primary" value="ok">OK</button>
+        </div>
+      </form>
+    </dialog>
+
     <input id="importFile" type="file" accept="application/json" style="display: none" />
 
     <script>
       const VAULT_KEY = "simple_password_vault_v1";
       const LAST_BACKUP_TS_KEY = "simple_password_vault_last_backup_ts_v1";
+      const CLOUD_BACKUP_CODE_KEY = "simple_password_vault_cloud_backup_code_v1";
+      const CLOUD_BACKUP_TS_KEY = "simple_password_vault_cloud_backup_ts_v1";
+      const CLOUD_BACKUP_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
+      const CLOUD_BASE_URL = "https://passordhvelv-backup-richard141271.workers.dev";
       const encoder = new TextEncoder();
       const decoder = new TextDecoder();
 
@@ -485,6 +546,8 @@
       const lockedPanelEl = document.getElementById("lockedPanel");
       const lockedHintEl = document.getElementById("lockedHint");
       const lastBackupEl = document.getElementById("lastBackup");
+      const cloudHintEl = document.getElementById("cloudHint");
+      const lastCloudBackupEl = document.getElementById("lastCloudBackup");
 
       const lockBtn = document.getElementById("lockBtn");
       const unlockBtn = document.getElementById("unlockBtn");
@@ -496,6 +559,8 @@
       const lockedCreateBtn = document.getElementById("lockedCreateBtn");
       const lockedBackupBtn = document.getElementById("lockedBackupBtn");
       const lockedImportBtn = document.getElementById("lockedImportBtn");
+      const cloudSetupBtn = document.getElementById("cloudSetupBtn");
+      const cloudRestoreBtn = document.getElementById("cloudRestoreBtn");
 
       const unlockDialog = document.getElementById("unlockDialog");
       const unlockForm = document.getElementById("unlockForm");
@@ -521,6 +586,18 @@
       const deleteBtn = document.getElementById("deleteBtn");
       const entryStatusEl = document.getElementById("entryStatus");
 
+      const cloudDialog = document.getElementById("cloudDialog");
+      const cloudForm = document.getElementById("cloudForm");
+      const cloudTitleEl = document.getElementById("cloudTitle");
+      const cloudSetupViewEl = document.getElementById("cloudSetupView");
+      const cloudRestoreViewEl = document.getElementById("cloudRestoreView");
+      const cloudCodeEl = document.getElementById("cloudCode");
+      const cloudRestoreCodeEl = document.getElementById("cloudRestoreCode");
+      const cloudCopyCodeBtn = document.getElementById("cloudCopyCodeBtn");
+      const cloudRegenerateBtn = document.getElementById("cloudRegenerateBtn");
+      const cloudStatusEl = document.getElementById("cloudStatus");
+      const cloudActionBtn = document.getElementById("cloudActionBtn");
+
       let sessionKey = null;
       let vaultSalt = null;
       let items = [];
@@ -539,6 +616,11 @@
       function setEntryStatus(message, kind = "") {
         entryStatusEl.textContent = message || "";
         entryStatusEl.className = kind ? `status ${kind}` : "status";
+      }
+
+      function setCloudStatus(message, kind = "") {
+        cloudStatusEl.textContent = message || "";
+        cloudStatusEl.className = kind ? `status ${kind}` : "status";
       }
 
       function toBase64(bytes) {
@@ -626,12 +708,57 @@
         localStorage.setItem(LAST_BACKUP_TS_KEY, String(ts));
       }
 
+      function getCloudCode() {
+        const raw = localStorage.getItem(CLOUD_BACKUP_CODE_KEY);
+        return raw ? raw : null;
+      }
+
+      function setCloudCode(code) {
+        localStorage.setItem(CLOUD_BACKUP_CODE_KEY, code);
+      }
+
+      function clearCloudCode() {
+        localStorage.removeItem(CLOUD_BACKUP_CODE_KEY);
+        localStorage.removeItem(CLOUD_BACKUP_TS_KEY);
+      }
+
+      function getLastCloudBackupTs() {
+        const raw = localStorage.getItem(CLOUD_BACKUP_TS_KEY);
+        if (!raw) return null;
+        const ts = Number(raw);
+        return Number.isFinite(ts) && ts > 0 ? ts : null;
+      }
+
+      function setLastCloudBackupTs(ts) {
+        localStorage.setItem(CLOUD_BACKUP_TS_KEY, String(ts));
+      }
+
       function formatDateTime(ts) {
         try {
           return new Intl.DateTimeFormat("no-NO", { dateStyle: "medium", timeStyle: "short" }).format(new Date(ts));
         } catch {
           return new Date(ts).toLocaleString();
         }
+      }
+
+      function normalizeCloudCode(code) {
+        return (code || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+      }
+
+      function formatCloudCode(code) {
+        const raw = normalizeCloudCode(code);
+        const parts = [];
+        for (let i = 0; i < raw.length; i += 4) parts.push(raw.slice(i, i + 4));
+        return parts.join("-");
+      }
+
+      function generateCloudCode() {
+        const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        const bytes = new Uint8Array(16);
+        crypto.getRandomValues(bytes);
+        let out = "";
+        for (let i = 0; i < bytes.length; i++) out += alphabet[bytes[i] % alphabet.length];
+        return formatCloudCode(out);
       }
 
       function updateBackupUI() {
@@ -643,8 +770,46 @@
         lockedBackupBtn.disabled = !hasVault;
       }
 
+      function updateCloudUI() {
+        const hasVault = getHasVault();
+        const code = getCloudCode();
+        const ts = getLastCloudBackupTs();
+        lastCloudBackupEl.textContent = ts ? formatDateTime(ts) : "Aldri";
+
+        const configured = !!CLOUD_BASE_URL;
+        if (!configured) {
+          cloudHintEl.textContent = "Skybackup er ikke tilgjengelig i denne versjonen.";
+          cloudSetupBtn.disabled = true;
+          cloudRestoreBtn.disabled = true;
+          cloudRestoreBtn.style.display = "none";
+          return;
+        }
+
+        if (!hasVault) {
+          cloudHintEl.textContent = "Opprett et hvelv først, så kan du aktivere skybackup.";
+          cloudSetupBtn.disabled = true;
+          cloudRestoreBtn.disabled = true;
+          cloudRestoreBtn.style.display = "none";
+          return;
+        }
+
+        if (!code) {
+          cloudHintEl.textContent = "Aktiver skybackup én gang. Etterpå skjer det automatisk omtrent ukentlig.";
+          cloudSetupBtn.disabled = false;
+          cloudRestoreBtn.disabled = false;
+          cloudRestoreBtn.style.display = "inline-block";
+          return;
+        }
+
+        cloudHintEl.textContent = "Skybackup er aktiv. Du kan gjenopprette ved å skrive inn koden.";
+        cloudSetupBtn.disabled = false;
+        cloudRestoreBtn.disabled = false;
+        cloudRestoreBtn.style.display = "inline-block";
+      }
+
       function setLockedUI(locked) {
         updateBackupUI();
+        updateCloudUI();
         vaultStateEl.textContent = locked ? "Låst" : "Ulåst";
         lockBtn.disabled = locked;
         addBtn.disabled = locked;
@@ -757,6 +922,7 @@
         if (!sessionKey || !vaultSalt) throw new Error("Vault not unlocked");
         const encrypted = await encryptJson(sessionKey, { items });
         saveRawVault({ v: 1, salt: toBase64(vaultSalt), enc: encrypted });
+        maybeAutoCloudBackup();
       }
 
       function clearSensitiveInputs() {
@@ -913,6 +1079,140 @@
         }
       }
 
+      let cloudMode = "setup";
+
+      function getCloudConfigured() {
+        return typeof CLOUD_BASE_URL === "string" && CLOUD_BASE_URL.length > 0;
+      }
+
+      function getCloudIdFromCode(code) {
+        const id = normalizeCloudCode(code);
+        if (id.length < 12) return null;
+        if (id.length > 48) return null;
+        return id;
+      }
+
+      function getStoredCloudId() {
+        const code = getCloudCode();
+        if (!code) return null;
+        return getCloudIdFromCode(code);
+      }
+
+      async function cloudFetch(path, init) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        try {
+          const res = await fetch(`${CLOUD_BASE_URL}${path}`, { ...init, signal: controller.signal });
+          return res;
+        } finally {
+          clearTimeout(timeoutId);
+        }
+      }
+
+      async function cloudBackupNow({ silent = false, force = false } = {}) {
+        if (!getCloudConfigured()) {
+          if (!silent) setStatus("Skybackup er ikke satt opp ennå.", "error");
+          return false;
+        }
+
+        const id = getStoredCloudId();
+        if (!id) {
+          if (!silent) setStatus("Skybackup er ikke aktivert ennå.", "error");
+          return false;
+        }
+
+        const last = getLastCloudBackupTs();
+        if (!force && last && Date.now() - last < CLOUD_BACKUP_INTERVAL_MS) return true;
+
+        const raw = loadRawVault();
+        if (!raw) {
+          if (!silent) setStatus("Ingen hvelv å sikkerhetskopiere ennå.", "error");
+          return false;
+        }
+
+        try {
+          const res = await cloudFetch(`/v1/vault/${encodeURIComponent(id)}`, {
+            method: "PUT",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(raw),
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          setLastCloudBackupTs(Date.now());
+          updateCloudUI();
+          if (!silent) {
+            setStatus("Skybackup oppdatert.", "ok");
+            setTimeout(() => setStatus(""), 1800);
+          }
+          return true;
+        } catch {
+          if (!silent) setStatus("Klarte ikke å oppdatere skybackup.", "error");
+          return false;
+        }
+      }
+
+      function maybeAutoCloudBackup() {
+        if (!getCloudConfigured()) return;
+        if (!getStoredCloudId()) return;
+        const last = getLastCloudBackupTs();
+        if (last && Date.now() - last < CLOUD_BACKUP_INTERVAL_MS) return;
+        setTimeout(() => cloudBackupNow({ silent: true, force: true }), 0);
+      }
+
+      async function cloudRestoreNow(codeInput) {
+        if (!getCloudConfigured()) {
+          setCloudStatus("Skybackup er ikke satt opp ennå.", "error");
+          return;
+        }
+        const id = getCloudIdFromCode(codeInput);
+        if (!id) {
+          setCloudStatus("Ugyldig kode.", "error");
+          return;
+        }
+
+        try {
+          const res = await cloudFetch(`/v1/vault/${encodeURIComponent(id)}`, { method: "GET" });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const json = await res.json();
+          if (!json?.salt || !json?.enc?.iv || !json?.enc?.data) {
+            setCloudStatus("Fant ingen hvelv på denne koden.", "error");
+            return;
+          }
+          saveRawVault(json);
+          setCloudCode(formatCloudCode(id));
+          setLastCloudBackupTs(Date.now());
+          updateCloudUI();
+          cloudDialog.close();
+          lock();
+          openUnlock({ createNew: false });
+          setStatus("Hentet fra sky. Lås opp for å se innholdet.", "ok");
+          setTimeout(() => setStatus(""), 2400);
+        } catch {
+          setCloudStatus("Klarte ikke å hente fra sky.", "error");
+        }
+      }
+
+      function openCloudDialog(mode) {
+        cloudMode = mode;
+        setCloudStatus("");
+
+        if (mode === "setup") {
+          cloudTitleEl.textContent = "Aktiver skybackup";
+          cloudSetupViewEl.style.display = "block";
+          cloudRestoreViewEl.style.display = "none";
+          cloudActionBtn.textContent = "Aktiver";
+          const existing = getCloudCode();
+          cloudCodeEl.value = existing ? existing : generateCloudCode();
+        } else {
+          cloudTitleEl.textContent = "Gjenopprett fra sky";
+          cloudSetupViewEl.style.display = "none";
+          cloudRestoreViewEl.style.display = "block";
+          cloudActionBtn.textContent = "Hent";
+          cloudRestoreCodeEl.value = "";
+        }
+
+        cloudDialog.showModal();
+      }
+
       function getHasVault() {
         return !!loadRawVault();
       }
@@ -925,6 +1225,7 @@
       async function init() {
         setLockedUI(true);
         setStatus("");
+        maybeAutoCloudBackup();
       }
 
       unlockCancelBtn.addEventListener("click", (e) => {
@@ -994,6 +1295,8 @@
       lockedCreateBtn.addEventListener("click", () => openUnlock({ createNew: true }));
       lockedBackupBtn.addEventListener("click", () => backupNow());
       lockedImportBtn.addEventListener("click", () => triggerImport());
+      cloudSetupBtn.addEventListener("click", () => openCloudDialog("setup"));
+      cloudRestoreBtn.addEventListener("click", () => openCloudDialog("restore"));
       addBtn.addEventListener("click", () => openCreate());
 
       searchEl.addEventListener("input", () => render());
@@ -1100,6 +1403,57 @@
           setTimeout(() => setStatus(""), 2000);
         } catch {
           setStatus("Klarte ikke å importere.", "error");
+        }
+      });
+
+      cloudCopyCodeBtn.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(cloudCodeEl.value || "");
+          setCloudStatus("Kopierte kode.", "ok");
+          setTimeout(() => setCloudStatus(""), 1600);
+        } catch {
+          cloudCodeEl.focus();
+          cloudCodeEl.select();
+          setCloudStatus("Marker koden og kopier manuelt.", "error");
+        }
+      });
+
+      cloudRegenerateBtn.addEventListener("click", () => {
+        cloudCodeEl.value = generateCloudCode();
+      });
+
+      cloudForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        setCloudStatus("");
+        cloudActionBtn.disabled = true;
+
+        try {
+          if (cloudMode === "setup") {
+            if (!getHasVault()) {
+              setCloudStatus("Opprett et hvelv først.", "error");
+              return;
+            }
+            const id = getCloudIdFromCode(cloudCodeEl.value);
+            if (!id) {
+              setCloudStatus("Ugyldig kode.", "error");
+              return;
+            }
+            setCloudCode(formatCloudCode(id));
+            const ok = await cloudBackupNow({ silent: false, force: true });
+            if (ok) {
+              cloudDialog.close();
+              setLockedUI(true);
+            }
+            return;
+          }
+
+          if (cloudMode === "restore") {
+            const candidate = normalize(cloudRestoreCodeEl.value);
+            const code = candidate ? candidate : getCloudCode();
+            await cloudRestoreNow(code);
+          }
+        } finally {
+          cloudActionBtn.disabled = false;
         }
       });
 
