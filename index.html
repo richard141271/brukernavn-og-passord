@@ -492,7 +492,7 @@
         <div class="dialog-body">
           <div id="cloudSetupView">
             <div class="small" style="margin-bottom: 10px">
-              Skybackup gjør at du kan gjenopprette selv om nettleserdata blir slettet. Du får en gjenopprettingskode.
+              Skybackup gjør at du kan gjenopprette selv om nettleserdata blir slettet. Det oppdateres automatisk når du lagrer endringer. Du får en gjenopprettingskode.
             </div>
             <div>
               <label for="cloudCode">Gjenopprettingskode</label>
@@ -532,7 +532,6 @@
       const LAST_BACKUP_TS_KEY = "simple_password_vault_last_backup_ts_v1";
       const CLOUD_BACKUP_CODE_KEY = "simple_password_vault_cloud_backup_code_v1";
       const CLOUD_BACKUP_TS_KEY = "simple_password_vault_cloud_backup_ts_v1";
-      const CLOUD_BACKUP_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
       const CLOUD_BASE_URL = "https://passordhvelv-backup-richard141271.workers.dev";
       const encoder = new TextEncoder();
       const decoder = new TextDecoder();
@@ -794,7 +793,7 @@
         }
 
         if (!code) {
-          cloudHintEl.textContent = "Aktiver skybackup én gang. Etterpå skjer det automatisk omtrent ukentlig.";
+          cloudHintEl.textContent = "Aktiver skybackup én gang. Etterpå skjer det automatisk når du lagrer endringer.";
           cloudSetupBtn.disabled = false;
           cloudRestoreBtn.disabled = false;
           cloudRestoreBtn.style.display = "inline-block";
@@ -922,7 +921,7 @@
         if (!sessionKey || !vaultSalt) throw new Error("Vault not unlocked");
         const encrypted = await encryptJson(sessionKey, { items });
         saveRawVault({ v: 1, salt: toBase64(vaultSalt), enc: encrypted });
-        maybeAutoCloudBackup();
+        scheduleCloudBackup();
       }
 
       function clearSensitiveInputs() {
@@ -1080,6 +1079,9 @@
       }
 
       let cloudMode = "setup";
+      let cloudBackupQueued = false;
+      let cloudBackupInFlight = false;
+      let cloudBackupTimer = null;
 
       function getCloudConfigured() {
         return typeof CLOUD_BASE_URL === "string" && CLOUD_BASE_URL.length > 0;
@@ -1109,7 +1111,7 @@
         }
       }
 
-      async function cloudBackupNow({ silent = false, force = false } = {}) {
+      async function cloudBackupNow({ silent = false } = {}) {
         if (!getCloudConfigured()) {
           if (!silent) setStatus("Skybackup er ikke satt opp ennå.", "error");
           return false;
@@ -1120,9 +1122,6 @@
           if (!silent) setStatus("Skybackup er ikke aktivert ennå.", "error");
           return false;
         }
-
-        const last = getLastCloudBackupTs();
-        if (!force && last && Date.now() - last < CLOUD_BACKUP_INTERVAL_MS) return true;
 
         const raw = loadRawVault();
         if (!raw) {
@@ -1150,12 +1149,35 @@
         }
       }
 
-      function maybeAutoCloudBackup() {
+      async function flushCloudBackup() {
         if (!getCloudConfigured()) return;
         if (!getStoredCloudId()) return;
-        const last = getLastCloudBackupTs();
-        if (last && Date.now() - last < CLOUD_BACKUP_INTERVAL_MS) return;
-        setTimeout(() => cloudBackupNow({ silent: true, force: true }), 0);
+        if (cloudBackupInFlight) return;
+        if (!cloudBackupQueued) return;
+
+        cloudBackupQueued = false;
+        cloudBackupInFlight = true;
+        try {
+          await cloudBackupNow({ silent: true });
+        } finally {
+          cloudBackupInFlight = false;
+        }
+
+        if (cloudBackupQueued) {
+          setTimeout(() => flushCloudBackup(), 0);
+        }
+      }
+
+      function scheduleCloudBackup() {
+        if (!getCloudConfigured()) return;
+        if (!getStoredCloudId()) return;
+        cloudBackupQueued = true;
+
+        if (cloudBackupTimer) return;
+        cloudBackupTimer = setTimeout(() => {
+          cloudBackupTimer = null;
+          flushCloudBackup();
+        }, 900);
       }
 
       async function cloudRestoreNow(codeInput) {
@@ -1225,7 +1247,7 @@
       async function init() {
         setLockedUI(true);
         setStatus("");
-        maybeAutoCloudBackup();
+        scheduleCloudBackup();
       }
 
       unlockCancelBtn.addEventListener("click", (e) => {
@@ -1439,7 +1461,7 @@
               return;
             }
             setCloudCode(formatCloudCode(id));
-            const ok = await cloudBackupNow({ silent: false, force: true });
+            const ok = await cloudBackupNow({ silent: false });
             if (ok) {
               cloudDialog.close();
               setLockedUI(true);
